@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wildfire Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+        }
+
+        #left-sidebar {
+            width: 350px;
+            background-color: black;
+            color: white;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #map {
+            flex-grow: 1;
+            height: 100vh;
+        }
+        /* The Modal (background) */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgb(0,0,0); /* Fallback color */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto; /* Center the modal */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%; /* Set width */
+            height: 50%; /* Set height */
+            top: 50%; /* Position from the top */
+            left: 50%; /* Position from the left */
+            transform: translate(-50%, -50%); /* Translate position */
+            position: absolute; /* Absolute positioning */
+        }
+
+        /* The Close Button */
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-content {
+            /*...existing styles...*/
+            font-size: 16px;
+            line-height: 1.6; /* Improved line spacing */
+
+            background: rgb(255,116,0);
+            background: linear-gradient(140deg, rgba(255,116,0,0.6) 0%, rgba(255,154,0,0.6) 43%, rgba(218,82,33,0.6) 100%);
+            margin: auto; /* Center the modal */
+            padding: 40px;
+            border: 1px solid darkorange;
+            width: 50%; /* Set width */
+            height: auto; /* Allow it to expand vertically */
+            max-height: 80vh; /* Max height */
+            top: 50%; /* Position from the top */
+            left: 50%; /* Position from the left */
+            transform: translate(-50%, -50%); /* Translate position */
+            position: absolute; /* Absolute positioning */
+            overflow-y: auto; /* Add scroll on Y axis when needed */
+            color:whitesmoke;
+            font-family: monospace;
+        }
+
+        .modal-content h3 {
+            color: whitesmoke; /* Darker text color */
+            margin-top: 20px;
+        }
+
+        .modal-content ul {
+            list-style-type: none; /* Remove bullet points */
+            padding: 0;
+        }
+
+        .modal-content li {
+            margin-bottom: 10px; /* Add space between list items */
+        }
+        #buton-generate{
+            padding: 30px;
+            font-family: monospace;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        #buton-generate:hover{
+            background-color: darkorange;
+            color: white;
+        }
+        #wildfires_header{
+            font-family: monospace;
+            font-size: 28px;
+        }
+
+        #info-box {
+            position: fixed;
+            top: 100px;
+            right: 30px;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 10px;
+            width: 200px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #info-title {
+            margin: 0;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #latitude, #longitude, #intensity {
+            margin: 5px 0;
+        }
+
+
+    </style>
+</head>
+<body>
+<div id="left-sidebar">
+    <img src="logo.png" height="30" alt="Your Logo" id="logo" style="margin-top: 50px; margin-bottom: 50px;">
+    <h2 id="wildfires_header">Active Wildfires</h2>
+    <ul id="wildfire-list"></ul>
+    <button onclick="openModal()" style="margin-top: 100px;" id="buton-generate">Generate AI Report</button>
+    <img src="robot.png" height="200" alt="Robot Icon" id="robot-icon">
+
+</div>
+<div id="map"></div>
+<!-- Modal structure -->
+<div id="myModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <p id="modal-text"></p>
+    </div>
+</div>
+
+<div id="info-box" style="display: none; position: absolute;" >
+    <h4 id="info-title">Wildfire Information</h4>
+    <p id="latitude"></p>
+    <p id="longitude"></p>
+    <p id="intensity"></p>
+</div>
+
+
+<script src="./index.js"></script>
+</body>
+</html>
