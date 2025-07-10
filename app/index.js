@@ -1,4 +1,42 @@
+import config from './config.js';
+
+async function getClusteredWildfireSummary(wildfireData) {
+    // Prepare the prompt for clustering/grouping
+    const promptDataString = wildfireData.map(d => `Latitude: ${d.latitude}, Longitude: ${d.longitude}, Intensity: ${d.bright_ti4}`).join(', ');
+    const prompt = `Given the following wildfire data (latitude, longitude, intensity) for North Macedonia, group the wildfires by their nearest city or region. For each group, provide the city/region name, the number of wildfires, and the average intensity. Output as a simple HTML unordered list. Here is the data: ${promptDataString}`;
+
+    const payload = {
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.5
+    };
+
+    try {
+        const response = await fetch('/api/openai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        const data = await response.json();
+        if (data && data.choices && data.choices.length > 0) {
+            return data.choices[0].message.content.trim();
+        }
+        return '<li>No summary available</li>';
+    } catch (error) {
+        console.error('Error fetching clustered wildfire summary:', error);
+        return `<li>Error: ${error.message}</li>`;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    if (config.NASA_API_KEY === 'YOUR_NASA_API_KEY_HERE') {
+        alert('Please configure your NASA API key in config.js');
+        return;
+    }
+
     var map = L.map('map').setView([41.42094, 21.93514], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors, © CartoDB'
@@ -9,71 +47,71 @@ document.addEventListener('DOMContentLoaded', function() {
         .range(['orange', 'red'])
         .clamp(true);
 
-    d3.csv("https://firms.modaps.eosdis.nasa.gov/api/country/csv/5f8beb2842be8c7fdf82232f67538867/VIIRS_SNPP_NRT/MKD/1/2023-10-07").then(data => {
+    let nasaApiUrl;
+    if (config.DAYS_BACK === 1) {
+        const today = new Date();
+        const dateString = today.toISOString().split('T')[0];
+        nasaApiUrl = `https://firms.modaps.eosdis.nasa.gov/api/country/csv/${config.NASA_API_KEY}/VIIRS_SNPP_NRT/${config.COUNTRY_CODE}/1/${dateString}`;
+    } else {
+        nasaApiUrl = `https://firms.modaps.eosdis.nasa.gov/api/country/csv/${config.NASA_API_KEY}/VIIRS_SNPP_NRT/${config.COUNTRY_CODE}/${config.DAYS_BACK}`;
+    }
+
+    d3.csv(nasaApiUrl).then(async data => {
+        if (!data || data.length === 0) {
+            document.getElementById('wildfire-list').innerHTML = '<li>No active wildfires detected for the selected period</li>';
+            return;
+        }
+
+        // Draw wildfires on the map
         data.forEach(d => {
             var circle = L.circleMarker([+d.latitude, +d.longitude], {
                 color: intensityColor(+d.bright_ti4),
                 radius: 4
             }).addTo(map);
             circle.bindTooltip(`Intensity: ${d.bright_ti4}`);
-            // Add event listeners for mouseover and mouseout
             circle.on('mouseover', function(e) {
                 document.getElementById('latitude').textContent = `Latitude: ${d.latitude}`;
                 document.getElementById('longitude').textContent = `Longitude: ${d.longitude}`;
                 document.getElementById('intensity').textContent = `Intensity: ${d.bright_ti4}`;
-                document.getElementById('info-box').style.display = 'block'; // show the info box
+                document.getElementById('info-box').style.display = 'block';
             });
             circle.on('mouseout', function(e) {
-                document.getElementById('info-box').style.display = 'none'; // hide the info box
+                document.getElementById('info-box').style.display = 'none';
             });
         });
-        data.sort((a, b) => parseFloat(b.bright_ti4) - parseFloat(a.bright_ti4));
-        const wildfireList = document.getElementById('wildfire-list');
-        data.slice(0, 10).forEach(d => { // Only list top 10
-            const li = document.createElement('li');
-            li.textContent = `Lat: ${d.latitude}, Long: ${d.longitude}, Intensity: ${d.bright_ti4}`;
-            wildfireList.appendChild(li);
-        });
-    }).catch(error => console.error('Error fetching or parsing CSV data:', error));
+
+        // Grouped summary via LLM
+        const sidebar = document.getElementById('wildfire-list');
+        sidebar.innerHTML = '<li>Loading grouped wildfire summary...</li>';
+        const summaryHtml = await getClusteredWildfireSummary(data);
+        sidebar.innerHTML = `<div><strong>Grouped Wildfire Summary</strong>${summaryHtml}</div>`;
+
+        // Add collapsible for raw data
+        const rawDataHtml = data.slice(0, 50).map(d => `<li>Lat: ${d.latitude}, Long: ${d.longitude}, Intensity: ${d.bright_ti4}</li>`).join('');
+        const collapsible = document.createElement('details');
+        collapsible.innerHTML = `<summary>Show raw wildfire data</summary><ul>${rawDataHtml}</ul>`;
+        sidebar.appendChild(collapsible);
+    }).catch(error => {
+        document.getElementById('wildfire-list').innerHTML = '<li>Error loading wildfire data. Please check your API key.</li>';
+    });
+
     var modal = document.getElementById("myModal");
-
-// Get the button that opens the modal
     var btn = document.querySelector("button");
-
-// Get the <span> element that closes the modal
     var span = document.getElementsByClassName("close")[0];
+    btn.onclick = function() { modal.style.display = "block"; }
+    span.onclick = function() { modal.style.display = "none"; }
+    window.onclick = function(event) { if (event.target == modal) { modal.style.display = "none"; } }
 
-// When the user clicks the button, open the modal
-    btn.onclick = function() {
-        modal.style.display = "block";
-    }
-
-// When the user clicks on <span> (x), close the modal
-    span.onclick = function() {
-        modal.style.display = "none";
-    }
-
-// When the user clicks anywhere outside of the modal, close it
-    window.onclick = function(event) {
-        if (event.target == modal) {
-            modal.style.display = "none";
-        }
-    }
-    //SAt0X8sqyOzqMZ5LLOQiT3BlbkFJMPHrWqLUs0l1qcWQFiPJ
-    // Add event listener to your AI report button
-    // Add event listener to your AI report button
     document.querySelector('button').addEventListener('click', async () => {
         try {
-            const nasaResponse = await d3.csv("https://firms.modaps.eosdis.nasa.gov/api/country/csv/5f8beb2842be8c7fdf82232f67538867/VIIRS_SNPP_NRT/MKD/1/2023-10-07");
-
+            const nasaResponse = await d3.csv(nasaApiUrl);
             if (!nasaResponse || nasaResponse.length === 0) {
-                console.error('No data returned from NASA API');
+                document.getElementById('modal-text').innerHTML = '<h3>No Data Available</h3><p>No wildfire data is currently available for analysis.</p>';
+                modal.style.display = "block";
                 return;
             }
-
             nasaResponse.sort((a, b) => parseFloat(b.bright_ti4) - parseFloat(a.bright_ti4));
             const promptDataString = nasaResponse.slice(0, 10).map(d => `Latitude: ${d.latitude}, Longitude: ${d.longitude}, Intensity: ${d.bright_ti4}`).join(', ');
-
             const promptData = {
                 model: "gpt-3.5-turbo",
                 messages: [{
@@ -88,33 +126,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     Give advice how to behave. Your report should be in HTML elements, in a wrapped div. 
                     Please make your report in 5 paragraphs only and organise them in them with subheaders. 
                     In your output report, always use city approximate city names since the data for widlfires are in 
-                    North Macedonia country!`
+                    North Macedonia country!
+                    \n\nAdditionally, include a section on how current or typical weather conditions (such as wind, temperature, humidity, and drought) in North Macedonia affect the spread and danger of wildfires. Provide a technical but user-friendly explanation of these weather effects, and offer practical advice for residents based on these conditions.`
                     }],
                 temperature: 0.7
             };
-
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const response = await fetch('/api/openai', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer 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`, // Replace YOUR_API_KEY with your actual key
                 },
                 body: JSON.stringify(promptData),
             });
-
+            if (!response.ok) {
+                throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+            }
             const reportData = await response.json();
-
             if (reportData && reportData.choices && reportData.choices.length > 0) {
                 const reportText = reportData.choices[0].message.content.trim();
                 document.getElementById('modal-text').innerHTML = reportText;
                 modal.style.display = "block";
             } else {
-                console.error('No data returned from OpenAI');
+                document.getElementById('modal-text').innerHTML = '<h3>Error</h3><p>Unable to generate AI report. Please try again later.</p>';
+                modal.style.display = "block";
             }
         } catch (error) {
-            console.error('Error fetching AI report:', error);
+            document.getElementById('modal-text').innerHTML = `<h3>Error</h3><p>Failed to generate AI report: ${error.message}</p>`;
+            modal.style.display = "block";
         }
     });
-
-
 });

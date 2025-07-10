@@ -14,5 +14,8 @@
     "openai": "^4.11.1",
     "three": "^0.157.0",
     "three-globe": "^2.29.3"
+  },
+  "devDependencies": {
+    "vercel": "^44.3.0"
   }
 }
